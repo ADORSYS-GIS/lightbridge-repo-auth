@@ -1,0 +1,6 @@
+apiVersion: v2
+name: lightbridge-repo-auth
+description: GitHub App webhook control plane + /v1/resolve binding service for CI-runner OIDC auth.
+type: application
+version: 0.1.0
+appVersion: "0.1.0"

@@ -1,0 +1,20 @@
+{
+  "name": "vymalo-opencode",
+  "description": "Binds your GitHub org to your Vymalo account so CI runners can use AI coding via OIDC. No code access.",
+  "url": "https://vymalo.com",
+  "public": true,
+  "hook_attributes": {
+    "url": "https://api.vymalo.com/github/webhooks",
+    "active": true
+  },
+  "redirect_url": "https://app.vymalo.com/github/setup",
+  "setup_url": "https://app.vymalo.com/github/installed",
+  "setup_on_update": true,
+  "default_permissions": {
+    "metadata": "read"
+  },
+  "default_events": [
+    "installation",
+    "installation_repositories"
+  ]
+}

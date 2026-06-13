@@ -1,0 +1,22 @@
+[package]
+name = "lightbridge-repo-auth-core"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[dependencies]
+serde.workspace = true
+serde_json.workspace = true
+hex.workspace = true
+ring.workspace = true
+jsonwebtoken.workspace = true
+tokio.workspace = true
+axum.workspace = true
+reqwest.workspace = true
+sqlx.workspace = true
+thiserror.workspace = true
+tracing.workspace = true
+chrono.workspace = true
+cuid.workspace = true
+utoipa.workspace = true

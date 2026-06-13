@@ -1,0 +1,66 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "lra.name" . }}
+  labels:
+    {{- include "lra.labels" . | nindent 4 }}
+spec:
+  replicas: {{ .Values.replicas }}
+  selector:
+    matchLabels:
+      {{- include "lra.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "lra.labels" . | nindent 8 }}
+    spec:
+      securityContext:
+        {{- toYaml .Values.podSecurityContext | nindent 8 }}
+      containers:
+        - name: {{ include "lra.name" . }}
+          image: {{ include "lra.image" . | quote }}
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          securityContext:
+            {{- toYaml .Values.securityContext | nindent 12 }}
+          ports:
+            - name: http
+              containerPort: {{ .Values.service.port }}
+          env:
+            {{- range $k, $v := .Values.env }}
+            - name: {{ $k }}
+              value: {{ $v | quote }}
+            {{- end }}
+            - name: RA__DATABASE__URL
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "lra.name" . }}
+                  key: database-url
+            - name: RA__GITHUB__WEBHOOK_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "lra.name" . }}
+                  key: webhook-secret
+            - name: RA__RESOLVE__INTERNAL_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "lra.name" . }}
+                  key: internal-token
+          volumeMounts:
+            - name: github-app
+              mountPath: /etc/github-app
+              readOnly: true
+          readinessProbe:
+            httpGet: { path: /health/ready, port: http }
+            periodSeconds: 10
+          livenessProbe:
+            httpGet: { path: /health, port: http }
+            periodSeconds: 20
+          resources:
+            {{- toYaml .Values.resources | nindent 12 }}
+      volumes:
+        - name: github-app
+          secret:
+            secretName: {{ include "lra.name" . }}
+            items:
+              - key: private-key.pem
+                path: private-key.pem

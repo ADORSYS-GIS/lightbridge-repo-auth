@@ -1,0 +1,7 @@
+/target
+**/*.rs.bk
+.env
+*.pem
+*.key
+.DS_Store
+/config/config.yaml

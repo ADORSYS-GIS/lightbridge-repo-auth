@@ -1,0 +1,61 @@
+[workspace]
+members = [
+    "crates/lightbridge-repo-auth-core",
+    "app/lightbridge-repo-auth",
+]
+resolver = "3"
+
+[workspace.dependencies]
+lightbridge-repo-auth-core = { path = "./crates/lightbridge-repo-auth-core" }
+
+# --- serde / encoding ---
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+serde_yaml = "0.9"
+hex = "0.4"
+base64 = "0.22"
+
+# --- crypto / jwt ---
+# ring gives us a constant-time HMAC-SHA256 for webhook verification and is
+# already in the tree via rustls — avoids the hmac/sha2 `digest`-version coupling.
+ring = "0.17"
+jsonwebtoken = { version = "10.3" }
+jwks = "0.5"
+
+# --- async runtime / http ---
+tokio = { version = "1", features = ["macros", "rt-multi-thread", "signal", "net"] }
+axum = { version = "0.8", features = ["macros", "tracing"] }
+axum-server = { version = "0.8", features = ["tls-rustls"] }
+reqwest = { version = "0.13", default-features = false, features = ["json", "rustls", "charset", "http2"] }
+rustls = { version = "0.23", default-features = false, features = ["ring"] }
+
+# --- storage ---
+sqlx = { version = "0.8", features = ["runtime-tokio", "tls-rustls", "postgres", "chrono", "json", "macros", "migrate"] }
+
+# --- errors / logging / config ---
+thiserror = "2"
+anyhow = "1"
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["fmt", "env-filter", "json"] }
+clap = { version = "4", features = ["derive", "env"] }
+dotenvy = "0.15"
+
+# --- misc ---
+chrono = { version = "0.4", features = ["serde"] }
+cuid = { version = "2", default-features = false, features = ["v2"] }
+utoipa = { version = "5", features = ["macros", "chrono"] }
+mimalloc = "0"
+
+[workspace.package]
+version = "0.1.0"
+edition = "2024"
+license = "Apache-2.0"
+repository = "https://github.com/ADORSYS-GIS/lightbridge-repo-auth"
+
+[profile.prod]
+inherits = "release"
+lto = true
+opt-level = "z"
+codegen-units = 1
+incremental = false
+strip = true

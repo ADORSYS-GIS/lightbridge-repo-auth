@@ -1,0 +1,53 @@
+image:
+  repository: ghcr.io/adorsys-gis/lightbridge-repo-auth
+  # Empty → chart appVersion. Pin per release in the consuming Application.
+  tag: ""
+  pullPolicy: IfNotPresent
+
+replicas: 2
+
+service:
+  port: 3000
+
+# Non-secret env. Secret values come from the ExternalSecret below.
+env:
+  RA__SERVER__BIND: "0.0.0.0:3000"
+  # Numeric GitHub App id from the manifest conversion — public, not a secret.
+  RA__GITHUB__APP_ID: "000000"
+  RA__GITHUB__API_BASE: "https://api.github.com"
+  # The base every Source audience is built from: <base>/sources/<source_id>.
+  RA__SOURCE__AUDIENCE_BASE: "https://api.ai.camer.digital"
+  RA__GITHUB__PRIVATE_KEY_PATH: "/etc/github-app/private-key.pem"
+  RA__RECONCILE__INTERVAL_SECS: "900"
+  RUST_LOG: "info"
+
+# ESO-provisioned secret (ClusterSecretStore `ssegning-aws`). Maps remote
+# properties → the env vars + the mounted App private key. Adjust remoteKey /
+# property names to your secret layout (ai-helm convention: ai/camer/digital/prod/env).
+externalSecret:
+  enabled: true
+  storeRef: ssegning-aws
+  refreshInterval: 1h
+  remoteKey: ai/camer/digital/prod/env
+  props:
+    databaseUrl: repo_auth_database_url
+    webhookSecret: repo_auth_github_webhook_secret
+    internalToken: repo_auth_resolve_internal_token
+    privateKeyPem: repo_auth_github_private_key_pem
+
+resources:
+  requests:
+    cpu: 25m
+    memory: 32Mi
+  limits:
+    memory: 128Mi
+
+podSecurityContext:
+  runAsNonRoot: true
+  seccompProfile:
+    type: RuntimeDefault
+securityContext:
+  allowPrivilegeEscalation: false
+  readOnlyRootFilesystem: true
+  capabilities:
+    drop: ["ALL"]
