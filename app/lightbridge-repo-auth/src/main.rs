@@ -245,7 +245,7 @@ async fn resolve(
     State(st): State<AppState>,
     headers: HeaderMap,
     Json(req): Json<ResolveRequest>,
-) -> Result<Json<Value>> {
+) -> Result<(StatusCode, Json<Value>)> {
     // Only Authorino may call this; the body's claims are trusted on that basis.
     let presented = headers.get("x-internal-token").and_then(|v| v.to_str().ok());
     if presented != Some(st.config.resolve.internal_token.as_str()) {
@@ -256,10 +256,17 @@ async fn resolve(
         .ok_or_else(|| Error::BadRequest("audience not a /sources/<id> url".into()))?;
 
     let outcome = st.store.resolve(&req, &expected_source_id).await?;
-    if !outcome.allowed {
+    // 403 on deny so Authorino's (non-optional) metadata fetch fails closed even
+    // if its authorization step is ever misconfigured; 200 + `allowed:true` on
+    // success carries the account/plan the response headers read. A 5xx (DB
+    // down) propagates via `?` and also fails closed.
+    let code = if outcome.allowed {
+        StatusCode::OK
+    } else {
         tracing::debug!(owner_id = %req.repository_owner_id, reason = ?outcome.reason, "resolve denied");
-    }
-    Ok(Json(json!(outcome)))
+        StatusCode::FORBIDDEN
+    };
+    Ok((code, Json(json!(outcome))))
 }
 
 /// `https://api.vymalo.com/sources/src-7f3a8b` → `src-7f3a8b`.
