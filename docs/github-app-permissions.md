@@ -1,12 +1,9 @@
-# GitHub App permissions (minimal: auth + reviewer posting)
+# GitHub App permissions (minimal, auth-only)
 
-> **TL;DR — grant `Repository → Metadata: Read-only` + `Issues: Read & write` +
-> `Pull requests: Read & write`, and subscribe to the `installation` /
-> `installation_repositories` events. NO `Contents` (no code write).** Metadata
-> is the auth/binding floor; Issues+PR write let the App post AI code reviews as
-> `camer-digital-ai[bot]` (ai-helm **ADR-0050**, which amends the original
-> auth-only stance of ADR-0047). This matches
-> [`github-app-manifest.json`](../github-app-manifest.json), the source of truth.
+> **TL;DR — grant only `Repository → Metadata: Read-only` + the `installation`
+> and `installation_repositories` events. Nothing else.** No Contents, no Issues,
+> no write of any kind. This matches [`github-app-manifest.json`](../github-app-manifest.json),
+> which is the source of truth.
 
 ## Principle
 
@@ -36,33 +33,26 @@ No endpoint reads file contents, issues, pull requests, or anything writable.
 
 ## Required settings
 
-- **Repository permissions:**
-  - **Metadata: `Read-only`** — the auth/binding floor; covers `/installation/repositories`.
-  - **Issues: `Read & write`** + **Pull requests: `Read & write`** — so the App
-    posts AI reviews/comments as `camer-digital-ai[bot]` (ADR-0050). ⚠️ Adding
-    these requires every existing install to **re-approve** (GitHub fires
-    `installation` → `new_permissions_accepted`).
-  - **Contents: none** — the App still never reads or writes code; CI git
-    operations use the workflow's own `GITHUB_TOKEN`, not the App.
+- **Repository permissions → Metadata: `Read-only`.** (The only one. GitHub
+  auto-requires it; it covers `/installation/repositories`.)
 - **Subscribe to events:** `Installation`, `Installation repositories`.
 - **Account / Organization permissions:** none.
 - **Webhook:** active, URL `https://repo-auth.ai.camer.digital/github/webhooks`,
   with the shared secret (`repo_auth_github_webhook_secret`) — HMAC-verified.
 
-## Why Issues/PR write — but still NOT Contents
+## Why NOT Contents / Issues / any write
 
-This App installs across **every org**, so its blast radius is its permissions ×
-every install. ADR-0050 made a deliberate trade: we WANT reviews authored by a
-single branded `camer-digital-ai[bot]`, which needs `Issues` + `Pull requests`
-write — so a key compromise could spam issue/PR comments across installs
-(annoying, recoverable). We still **refuse `Contents`** — code write is the
-catastrophic, supply-chain scope, and nothing here needs it:
+This App installs across **every customer org**, so its blast radius is whatever
+its permissions allow, multiplied by every install. With `Metadata: Read` only,
+the worst case of a private-key compromise is "an attacker learns which orgs are
+customers." Add `Contents: RW` / `Issues: RW` and the worst case becomes **write
+access to every customer's code and issues** — a catastrophic, multi-tenant
+escalation for permissions the service never even uses.
 
-- **Posting reviews** → the App installation token (Issues/PR write) → bot author.
-- **CI git push** (clone/commit/push) → the workflow's own `GITHUB_TOKEN`
-  (per-repo, ephemeral), NOT the App. That's why the App needs no `Contents`.
-- **A future agent that must push code as the bot** → reconsider in a new ADR
-  before adding `Contents: write`; don't add it speculatively.
+- **Coding in runners** → the default `GITHUB_TOKEN` (set `permissions:` in the
+  workflow). Per-repo, ephemeral, never leaves the run.
+- **A branded bot that pushes across repos** (if ever wanted) → a *separate* App
+  with those scopes. Do not fold write permissions into the auth App.
 
 ## Operational note
 
