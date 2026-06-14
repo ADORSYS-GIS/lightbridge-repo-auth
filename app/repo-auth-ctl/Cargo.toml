@@ -1,0 +1,19 @@
+[package]
+name = "repo-auth-ctl"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[[bin]]
+name = "repo-auth-ctl"
+path = "src/main.rs"
+
+[dependencies]
+lightbridge-repo-auth-core.workspace = true
+
+clap.workspace = true
+reqwest.workspace = true
+tokio.workspace = true
+serde_json.workspace = true
+anyhow.workspace = true

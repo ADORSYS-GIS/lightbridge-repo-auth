@@ -80,6 +80,28 @@ Config is entirely env-driven (prefix `RA__`); see `.env.example` and `--help`.
    `pem`/`webhook_secret` go to your secret manager; this service reads them via
    ESO). The `code` is single-use, ~1h TTL.
 
+## Claiming an org (operator)
+
+There is **no public self-serve claim** (ADR-0049): we onboard a handful of
+first-party orgs by hand. After an org admin installs the App (a Source row
+appears, `account_id` NULL → resolve denies), an operator claims it with the
+`repo-auth-ctl` CLI, which talks to the ClusterIP-only admin API:
+
+```bash
+# point at the in-cluster service + load the internal token
+kubectl -n converse port-forward svc/lightbridge-repo-auth 3000:3000 &
+export RA__CTL__TOKEN=$(kubectl -n converse get secret lightbridge-repo-auth \
+  -o jsonpath='{.data.internal-token}' | base64 -d)
+
+cargo run -p repo-auth-ctl -- sources           # list installs + claim status
+cargo run -p repo-auth-ctl -- claim \           # link a Source to a billing account
+  --owner-id 139577169 --account-id adorsys-gis --plan pro
+```
+
+A future self-serve dashboard would call the same `/v1/admin/claim` endpoint
+after verifying (via GitHub OAuth + `GET /user/installations`) that the claimer
+administers the installation — see ADR-0049.
+
 ## AI Governance
 
 This repo follows the [ADORSYS-GIS AI Governance](https://adorsys-gis.github.io/ai-governance/)

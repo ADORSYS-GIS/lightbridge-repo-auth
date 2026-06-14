@@ -105,7 +105,7 @@ impl ResolveResponse {
 
 /// Link a Source to a billing account (the step a dashboard would do on the
 /// post-install redirect). Selected by `owner_id` (the binding key).
-#[derive(Debug, Clone, Deserialize, ToSchema)]
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
 pub struct ClaimRequest {
     /// GitHub numeric org/user id of the Source to claim.
     pub owner_id: String,

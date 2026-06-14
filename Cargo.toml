@@ -2,6 +2,7 @@
 members = [
     "crates/lightbridge-repo-auth-core",
     "app/lightbridge-repo-auth",
+    "app/repo-auth-ctl",
 ]
 resolver = "3"
 
