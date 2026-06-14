@@ -1,0 +1,17 @@
+{
+  "$schema": "https://opencode.ai/config.json",
+  "//": "Example opencode config for CI. The only per-customer value is `audience` — the dashboard generates the exact string. The plugin mints the GitHub Actions OIDC token for that audience and sends it as the gateway bearer.",
+  "plugin": ["@vymalo/opencode-oauth2"],
+  "provider": {
+    "vymalo": {
+      "options": {
+        "baseURL": "https://api.ai.camer.digital/v1",
+        "auth": {
+          "//": "subjectTokenSource=github_actions → the plugin reads ACTIONS_ID_TOKEN_REQUEST_URL/TOKEN and requests an OIDC token with this audience. The gateway (Authorino) validates that token directly — NO Keycloak exchange — so the plugin must send the raw OIDC token as the Authorization bearer (confirm @vymalo/opencode-oauth2 supports a no-exchange bearer mode; the original sketch used grant=jwt_bearer→Keycloak, which ADR-0047 dropped).",
+          "subjectTokenSource": "github_actions",
+          "audience": "https://api.ai.camer.digital/sources/src-REPLACE_ME"
+        }
+      }
+    }
+  }
+}

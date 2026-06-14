@@ -1,0 +1,34 @@
+# Example: what a CUSTOMER adds to their repo to let opencode use the AI gateway
+# from CI, authenticated by GitHub Actions OIDC (no API key, no shared secret).
+#
+# Prerequisite (one-time, by an org admin): install the Vymalo GitHub App and
+# claim it in the dashboard. The dashboard hands you the `audience` value below.
+#
+# Drop this at .github/workflows/ai-code.yml
+name: ai-code
+
+on:
+  workflow_dispatch:
+  issues:
+    types: [labeled]
+
+permissions:
+  id-token: write       # DATA PLANE: lets the runner mint the GitHub OIDC token
+  contents: write       # GIT: the default GITHUB_TOKEN pushes the branch
+  pull-requests: write  # GIT: open the PR
+
+jobs:
+  code:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Run opencode
+        env:
+          # The opencode-oauth2 plugin reads ACTIONS_ID_TOKEN_REQUEST_URL/TOKEN
+          # (auto-injected by `id-token: write`) and requests the OIDC token for
+          # the configured audience itself — so the token never appears in this
+          # file. GITHUB_TOKEN is used ONLY for git (commit/push/PR), never sent
+          # to the model gateway.
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: npx -y opencode-ai run "Address the issue and open a pull request"
