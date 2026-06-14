@@ -68,6 +68,10 @@ Config is entirely env-driven (prefix `RA__`); see `.env.example` and `--help`.
 
 ## Registering the GitHub App (manifest flow)
 
+> **Permissions:** grant **only `Metadata: Read`** + the `installation` /
+> `installation_repositories` events — this App is auth-only and never touches
+> code. Full rationale + the don'ts: [`docs/github-app-permissions.md`](docs/github-app-permissions.md).
+
 1. Serve an auto-POSTing form with `github-app-manifest.json` as the `manifest`
    field to `https://github.com/settings/apps/new?state=<csrf>` (or the org form).
 2. GitHub redirects to `redirect_url` with `?code=...`.
