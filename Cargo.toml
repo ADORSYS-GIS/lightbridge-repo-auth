@@ -19,7 +19,10 @@ base64 = "0.22"
 # ring gives us a constant-time HMAC-SHA256 for webhook verification and is
 # already in the tree via rustls — avoids the hmac/sha2 `digest`-version coupling.
 ring = "0.17"
-jsonwebtoken = { version = "10.3" }
+# v10 made the crypto backend a REQUIRED feature choice — with neither selected,
+# signing panics at runtime ("CryptoProvider not installed"). Pin the pure-Rust
+# backend (no aws-lc-rs native build; fine in distroless).
+jsonwebtoken = { version = "10.3", features = ["rust_crypto"] }
 jwks = "0.5"
 
 # --- async runtime / http ---

@@ -67,7 +67,7 @@ impl GithubClient {
 
     /// Mint a short-lived (≤10 min) App JWT. `iat` is back-dated 60s to absorb
     /// clock skew between us and GitHub.
-    fn app_jwt(&self) -> Result<String> {
+    pub(crate) fn app_jwt(&self) -> Result<String> {
         let now = chrono::Utc::now().timestamp();
         let claims = AppClaims {
             iat: now - 60,
@@ -144,5 +144,22 @@ impl GithubClient {
         let url = format!("{}/installation/repositories?per_page=100", self.api_base);
         let wrap: Wrap = self.get_json(&url, &token).await?;
         Ok(wrap.repositories)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    // Throwaway PKCS#1 key — proves App-JWT signing works with the configured
+    // jsonwebtoken crypto backend (regression guard for the v10 "CryptoProvider
+    // not installed" panic).
+    const TEST_KEY: &str = include_str!("../testdata/test-rsa.pem");
+
+    #[test]
+    fn app_jwt_signs_without_panicking() {
+        let c = GithubClient::new("https://api.github.com".into(), 12345, TEST_KEY).unwrap();
+        let jwt = c.app_jwt().expect("RS256 sign must succeed with a crypto backend");
+        assert_eq!(jwt.split('.').count(), 3, "a JWT has three parts");
     }
 }
