@@ -20,7 +20,7 @@ use lightbridge_repo_auth_core::config::{
 use lightbridge_repo_auth_core::error::{Error, Result};
 use lightbridge_repo_auth_core::github::GithubClient;
 use lightbridge_repo_auth_core::model::{
-    InstallationEvent, InstallationReposEvent, ResolveRequest, SourceStatus,
+    ClaimRequest, InstallationEvent, InstallationReposEvent, ResolveRequest, SourceStatus,
 };
 use lightbridge_repo_auth_core::store::Store;
 use lightbridge_repo_auth_core::webhook::verify_signature;
@@ -146,6 +146,8 @@ async fn main() -> anyhow::Result<()> {
     let app = Router::new()
         .route("/github/webhooks", post(webhook))
         .route("/v1/resolve", post(resolve))
+        .route("/v1/admin/sources", get(list_sources))
+        .route("/v1/admin/claim", post(claim))
         .route("/health", get(health))
         .route("/health/ready", get(ready))
         .route("/health/startup", get(health))
@@ -260,16 +262,23 @@ async fn handle_installation_repos(st: &AppState, body: &[u8]) -> Result<()> {
 
 // ─────────────────────────── resolve (data plane) ───────────────────────────
 
+/// Shared guard for the internal-only endpoints (resolve + admin). The caller
+/// must present the X-Internal-Token; these surfaces are ClusterIP-only.
+fn require_internal_token(headers: &HeaderMap, st: &AppState) -> Result<()> {
+    let presented = headers.get("x-internal-token").and_then(|v| v.to_str().ok());
+    if presented != Some(st.config.resolve.internal_token.as_str()) {
+        return Err(Error::Unauthorized);
+    }
+    Ok(())
+}
+
 async fn resolve(
     State(st): State<AppState>,
     headers: HeaderMap,
     Json(req): Json<ResolveRequest>,
 ) -> Result<(StatusCode, Json<Value>)> {
     // Only Authorino may call this; the body's claims are trusted on that basis.
-    let presented = headers.get("x-internal-token").and_then(|v| v.to_str().ok());
-    if presented != Some(st.config.resolve.internal_token.as_str()) {
-        return Err(Error::Unauthorized);
-    }
+    require_internal_token(&headers, &st)?;
 
     let expected_source_id = source_id_from_audience(&req.audience)
         .ok_or_else(|| Error::BadRequest("audience not a /sources/<id> url".into()))?;
@@ -286,6 +295,29 @@ async fn resolve(
         StatusCode::FORBIDDEN
     };
     Ok((code, Json(json!(outcome))))
+}
+
+// ─────────────────────────── admin (claim / list) ───────────────────────────
+
+async fn list_sources(State(st): State<AppState>, headers: HeaderMap) -> Result<Json<Value>> {
+    require_internal_token(&headers, &st)?;
+    Ok(Json(json!(st.store.list_sources().await?)))
+}
+
+/// Link a Source to a billing account (the dashboard's post-install step).
+async fn claim(
+    State(st): State<AppState>,
+    headers: HeaderMap,
+    Json(req): Json<ClaimRequest>,
+) -> Result<Json<Value>> {
+    require_internal_token(&headers, &st)?;
+    let row = st
+        .store
+        .claim(&req.owner_id, &req.account_id, req.billing_plan.as_deref())
+        .await?
+        .ok_or(Error::NotFound)?;
+    tracing::info!(owner_id = %req.owner_id, account_id = %req.account_id, plan = ?req.billing_plan, "source claimed");
+    Ok(Json(json!(row)))
 }
 
 /// `https://api.vymalo.com/sources/src-7f3a8b` → `src-7f3a8b`.

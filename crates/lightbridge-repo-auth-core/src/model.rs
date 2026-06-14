@@ -101,6 +101,21 @@ impl ResolveResponse {
     }
 }
 
+// ─────────────────────────── /v1/admin/claim ───────────────────────────
+
+/// Link a Source to a billing account (the step a dashboard would do on the
+/// post-install redirect). Selected by `owner_id` (the binding key).
+#[derive(Debug, Clone, Deserialize, ToSchema)]
+pub struct ClaimRequest {
+    /// GitHub numeric org/user id of the Source to claim.
+    pub owner_id: String,
+    /// External billing-account reference to stamp as `x-account-id`.
+    pub account_id: String,
+    /// Tier (`free|pro|service|internal`); omitted → leave the current value.
+    #[serde(default)]
+    pub billing_plan: Option<String>,
+}
+
 // ─────────────────────────── GitHub webhooks ───────────────────────────
 // Only the fields we act on are typed; the rest are ignored. octocrab's webhook
 // types are still beta, so these are hand-rolled and stable.

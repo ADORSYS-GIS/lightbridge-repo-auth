@@ -19,7 +19,13 @@ but a standard GitHub Actions OIDC token.
 |---|---|---|---|
 | Webhook | `POST /github/webhooks` | GitHub | `installation.*` / `installation_repositories.*` → write the Source store |
 | Resolve | `POST /v1/resolve` | Authorino (in-cluster) | (owner_id, audience, repo_id) → `{allowed, account_id, billing_plan}` |
+| Admin | `GET /v1/admin/sources`, `POST /v1/admin/claim` | dashboard / operator (in-cluster) | list Sources; **claim** = link a Source to a billing account (`{owner_id, account_id, billing_plan}`) |
 | Health | `GET /health`, `/health/ready`, `/health/startup` | k8s probes | liveness / readiness |
+
+> **Claiming** links an installed Source to a billing account (sets `account_id`
+> → stamped `x-account-id`). Until claimed, `/v1/resolve` denies. The admin
+> endpoints are guarded by the `X-Internal-Token` and are ClusterIP-only; a
+> future dashboard calls `/v1/admin/claim` on the post-install redirect.
 
 Reconcile sweep (default every 15 min) lists installations from GitHub and
 disables any local Source whose `installation.deleted` webhook was missed.

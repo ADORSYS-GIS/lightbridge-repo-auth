@@ -184,6 +184,43 @@ impl Store {
         })
     }
 
+    /// Link a Source to a billing account (the "claim" step). Selected by the
+    /// owner-id binding key; `billing_plan=None` leaves the current value.
+    /// Returns the updated row, or None if no Source has that owner.
+    pub async fn claim(
+        &self,
+        owner_id: &str,
+        account_id: &str,
+        billing_plan: Option<&str>,
+    ) -> Result<Option<IdentitySource>> {
+        let row = sqlx::query_as::<_, IdentitySource>(
+            r#"
+            update identity_source
+               set account_id   = $2,
+                   billing_plan = coalesce($3, billing_plan),
+                   updated_at   = now()
+             where repository_owner_id = $1
+            returning *
+            "#,
+        )
+        .bind(owner_id)
+        .bind(account_id)
+        .bind(billing_plan)
+        .fetch_optional(&self.pool)
+        .await?;
+        Ok(row)
+    }
+
+    /// All Sources (admin visibility).
+    pub async fn list_sources(&self) -> Result<Vec<IdentitySource>> {
+        let rows = sqlx::query_as::<_, IdentitySource>(
+            "select * from identity_source order by created_at",
+        )
+        .fetch_all(&self.pool)
+        .await?;
+        Ok(rows)
+    }
+
     pub async fn find_by_owner(&self, owner_id: &str) -> Result<Option<IdentitySource>> {
         let row = sqlx::query_as::<_, IdentitySource>(
             "select * from identity_source where repository_owner_id = $1",
