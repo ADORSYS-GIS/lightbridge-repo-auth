@@ -236,6 +236,7 @@ async fn handle_installation(st: &AppState, body: &[u8]) -> Result<()> {
                     ev.installation.id,
                     &owner_id,
                     ev.installation.account.login.as_deref(),
+                    ev.installation.account.account_type.as_deref(),
                     scope,
                 )
                 .await?;
@@ -344,13 +345,15 @@ fn spawn_reconcile(st: AppState, interval_secs: u64) {
 /// Compare our active installs against GitHub's truth and disable ghosts whose
 /// `installation.deleted` webhook we missed. Cheap insurance against webhook loss.
 async fn reconcile_once(st: &AppState) -> Result<()> {
-    let live: std::collections::HashSet<i64> = st
-        .github
-        .list_installations()
-        .await?
-        .into_iter()
-        .map(|i| i.id)
-        .collect();
+    let installs = st.github.list_installations().await?;
+    let live: std::collections::HashSet<i64> = installs.iter().map(|i| i.id).collect();
+    // Backfill the account name/type for every live install (covers rows created
+    // before account_type existed). Doesn't touch status/scope/account_id.
+    for i in &installs {
+        st.store
+            .refresh_account_info(i.id, i.account.login.as_deref(), i.account.account_type.as_deref())
+            .await?;
+    }
     let mut disabled = 0u32;
     for id in st.store.active_installation_ids().await? {
         if !live.contains(&id) {

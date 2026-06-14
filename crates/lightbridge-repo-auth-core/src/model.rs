@@ -27,6 +27,9 @@ pub struct IdentitySource {
     pub status: String,
     #[serde(default)]
     pub account_login: Option<String>,
+    /// `Organization` | `User` (from the install webhook's `account.type`).
+    #[serde(default)]
+    pub account_type: Option<String>,
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
 }

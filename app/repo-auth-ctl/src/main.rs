@@ -106,16 +106,25 @@ fn print_sources(rows: &[Value]) {
         return;
     }
     let g = |r: &Value, k: &str| r.get(k).and_then(Value::as_str).unwrap_or("-").to_string();
+    // Normalize GitHub's "Organization"/"User" → "org"/"user".
+    let typ = |r: &Value| match r.get("account_type").and_then(Value::as_str) {
+        Some("Organization") => "org".to_string(),
+        Some("User") => "user".to_string(),
+        Some(other) => other.to_string(),
+        None => "-".to_string(),
+    };
     println!(
-        "{:<30} {:<14} {:<16} {:<8} {:<9} STATUS",
-        "SOURCE_ID", "OWNER_ID", "ACCOUNT_ID", "PLAN", "SCOPE"
+        "{:<30} {:<12} {:<18} {:<6} {:<18} {:<7} {:<9} STATUS",
+        "SOURCE_ID", "OWNER_ID", "LOGIN", "TYPE", "ACCOUNT_ID", "PLAN", "SCOPE"
     );
     for r in rows {
         let account = r.get("account_id").and_then(Value::as_str).unwrap_or("<unclaimed>");
         println!(
-            "{:<30} {:<14} {:<16} {:<8} {:<9} {}",
+            "{:<30} {:<12} {:<18} {:<6} {:<18} {:<7} {:<9} {}",
             g(r, "id"),
             g(r, "repository_owner_id"),
+            g(r, "account_login"),
+            typ(r),
             account,
             g(r, "billing_plan"),
             g(r, "repo_scope"),

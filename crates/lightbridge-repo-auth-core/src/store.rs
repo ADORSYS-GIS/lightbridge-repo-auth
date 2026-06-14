@@ -60,23 +60,26 @@ impl Store {
     /// the row and just refreshes `installation_id` — and crucially does NOT
     /// clobber an already-`account_id` (the dashboard's claim survives a
     /// reinstall), nor flip status if it was disabled→active intentionally.
+    #[allow(clippy::too_many_arguments)]
     pub async fn upsert_installation(
         &self,
         installation_id: i64,
         repository_owner_id: &str,
         account_login: Option<&str>,
+        account_type: Option<&str>,
         repo_scope: &str,
     ) -> Result<IdentitySource> {
         let id = format!("src-{}", cuid::cuid2());
         let row = sqlx::query_as::<_, IdentitySource>(
             r#"
             insert into identity_source
-                (id, repository_owner_id, installation_id, repo_scope, account_login, status)
-            values ($1, $2, $3, $4, $5, 'active')
+                (id, repository_owner_id, installation_id, repo_scope, account_login, account_type, status)
+            values ($1, $2, $3, $4, $5, $6, 'active')
             on conflict (repository_owner_id) do update set
                 installation_id = excluded.installation_id,
                 repo_scope      = excluded.repo_scope,
                 account_login   = coalesce(excluded.account_login, identity_source.account_login),
+                account_type    = coalesce(excluded.account_type, identity_source.account_type),
                 status          = 'active',
                 updated_at      = now()
             returning *
@@ -87,9 +90,34 @@ impl Store {
         .bind(installation_id)
         .bind(repo_scope)
         .bind(account_login)
+        .bind(account_type)
         .fetch_one(&self.pool)
         .await?;
         Ok(row)
+    }
+
+    /// Refresh just the account name/type for a live installation (the reconcile
+    /// sweep uses this to backfill rows installed before account_type existed).
+    /// Does NOT touch status/scope/account_id.
+    pub async fn refresh_account_info(
+        &self,
+        installation_id: i64,
+        account_login: Option<&str>,
+        account_type: Option<&str>,
+    ) -> Result<()> {
+        sqlx::query(
+            r#"update identity_source set
+                 account_login = coalesce($2, account_login),
+                 account_type  = coalesce($3, account_type),
+                 updated_at    = now()
+               where installation_id = $1"#,
+        )
+        .bind(installation_id)
+        .bind(account_login)
+        .bind(account_type)
+        .execute(&self.pool)
+        .await?;
+        Ok(())
     }
 
     /// Flip status by installation id (deleted → disabled, suspend → suspended).
