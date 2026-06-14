@@ -38,8 +38,21 @@ struct Args {
     #[arg(long, env = "RA__SERVER__TLS_KEY_PATH")]
     tls_key_path: Option<String>,
 
+    // Either a full URL, or the parts below (e.g. password from a CNPG role Secret).
     #[arg(long, env = "RA__DATABASE__URL")]
-    database_url: String,
+    database_url: Option<String>,
+    #[arg(long, env = "RA__DATABASE__HOST")]
+    db_host: Option<String>,
+    #[arg(long, env = "RA__DATABASE__PORT", default_value_t = 5432)]
+    db_port: u16,
+    #[arg(long, env = "RA__DATABASE__NAME")]
+    db_name: Option<String>,
+    #[arg(long, env = "RA__DATABASE__USER")]
+    db_user: Option<String>,
+    #[arg(long, env = "RA__DATABASE__PASSWORD")]
+    db_password: Option<String>,
+    #[arg(long, env = "RA__DATABASE__SSLMODE", default_value = "disable")]
+    db_sslmode: String,
     #[arg(long, env = "RA__DATABASE__MAX_CONNECTIONS", default_value_t = 10)]
     db_max_connections: u32,
 
@@ -90,6 +103,12 @@ async fn main() -> anyhow::Result<()> {
         },
         database: DatabaseConfig {
             url: args.database_url.clone(),
+            host: args.db_host.clone(),
+            port: args.db_port,
+            name: args.db_name.clone(),
+            user: args.db_user.clone(),
+            password: args.db_password.clone(),
+            sslmode: args.db_sslmode.clone(),
             max_connections: args.db_max_connections,
         },
         github: GithubConfig {

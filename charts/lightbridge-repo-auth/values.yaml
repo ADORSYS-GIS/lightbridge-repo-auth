@@ -9,6 +9,11 @@ replicas: 2
 service:
   port: 3000
 
+database:
+  # CNPG-managed role Secret (basic-auth: username + password), provisioned in
+  # ai-helm charts/lightbridge-db next to the cluster. We read `password` from it.
+  roleSecretName: repo-auth-db-role
+
 # Public webhook ingress (Traefik). Only the /github surface is exposed; the
 # TLS Secret is provisioned by the app's deps overlay Certificate (ADR-0018),
 # so no cert-manager annotation lives here. Disabled by default — enable in the
@@ -27,6 +32,14 @@ env:
   # Numeric GitHub App id from the manifest conversion — public, not a secret.
   RA__GITHUB__APP_ID: "000000"
   RA__GITHUB__API_BASE: "https://api.github.com"
+  # Postgres via CNPG: a `repoauth` database + managed role on the existing
+  # lightbridge-main-db cluster (ai-helm charts/lightbridge-db). Host/port/name/
+  # user are non-secret; only the password is injected from the role Secret.
+  RA__DATABASE__HOST: "lightbridge-main-db-rw.converse.svc.cluster.local"
+  RA__DATABASE__PORT: "5432"
+  RA__DATABASE__NAME: "repoauth"
+  RA__DATABASE__USER: "repoauth"
+  RA__DATABASE__SSLMODE: "disable"
   # The base every Source audience is built from: <base>/sources/<source_id>.
   RA__SOURCE__AUDIENCE_BASE: "https://api.ai.camer.digital"
   RA__GITHUB__PRIVATE_KEY_PATH: "/etc/github-app/private-key.pem"
@@ -42,7 +55,6 @@ externalSecret:
   refreshInterval: 1h
   remoteKey: ai/camer/digital/prod/env
   props:
-    databaseUrl: repo_auth_database_url
     webhookSecret: repo_auth_github_webhook_secret
     internalToken: repo_auth_resolve_internal_token
     privateKeyPem: repo_auth_github_private_key_pem

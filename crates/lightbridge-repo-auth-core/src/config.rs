@@ -22,7 +22,17 @@ pub struct ServerConfig {
 
 #[derive(Debug, Clone)]
 pub struct DatabaseConfig {
-    pub url: String,
+    /// Full connection URL. When set it wins; otherwise the URL is assembled
+    /// from the parts below (so a CNPG role-Secret password can be injected
+    /// directly, with no URL-encoding pitfalls).
+    pub url: Option<String>,
+    pub host: Option<String>,
+    pub port: u16,
+    pub name: Option<String>,
+    pub user: Option<String>,
+    pub password: Option<String>,
+    /// disable | prefer | require | verify-ca | verify-full
+    pub sslmode: String,
     pub max_connections: u32,
 }
 

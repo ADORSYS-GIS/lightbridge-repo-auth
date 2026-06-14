@@ -30,11 +30,14 @@ spec:
             - name: {{ $k }}
               value: {{ $v | quote }}
             {{- end }}
-            - name: RA__DATABASE__URL
+            # DB host/port/name/user are plain env (.Values.env); only the
+            # password is secret — it comes from the CNPG-managed role Secret
+            # (provisioned in ai-helm charts/lightbridge-db alongside the cluster).
+            - name: RA__DATABASE__PASSWORD
               valueFrom:
                 secretKeyRef:
-                  name: {{ include "lra.name" . }}
-                  key: database-url
+                  name: {{ .Values.database.roleSecretName }}
+                  key: password
             - name: RA__GITHUB__WEBHOOK_SECRET
               valueFrom:
                 secretKeyRef:

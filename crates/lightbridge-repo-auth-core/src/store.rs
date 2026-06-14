@@ -1,12 +1,23 @@
 //! Postgres-backed Source store. The control plane writes here on webhooks; the
 //! data plane (`/v1/resolve`) reads here on every CI request.
 
-use sqlx::postgres::PgPoolOptions;
+use sqlx::postgres::{PgConnectOptions, PgPoolOptions, PgSslMode};
 use sqlx::PgPool;
 
 use crate::config::DatabaseConfig;
-use crate::error::Result;
+use crate::error::{Error, Result};
 use crate::model::{IdentitySource, Repo, ResolveRequest, ResolveResponse, SourceStatus};
+
+fn parse_sslmode(s: &str) -> PgSslMode {
+    match s.to_ascii_lowercase().as_str() {
+        "disable" => PgSslMode::Disable,
+        "allow" => PgSslMode::Allow,
+        "require" => PgSslMode::Require,
+        "verify-ca" => PgSslMode::VerifyCa,
+        "verify-full" => PgSslMode::VerifyFull,
+        _ => PgSslMode::Prefer,
+    }
+}
 
 #[derive(Clone)]
 pub struct Store {
@@ -15,10 +26,23 @@ pub struct Store {
 
 impl Store {
     pub async fn connect(cfg: &DatabaseConfig) -> Result<Self> {
-        let pool = PgPoolOptions::new()
-            .max_connections(cfg.max_connections)
-            .connect(&cfg.url)
-            .await?;
+        let opts = PgPoolOptions::new().max_connections(cfg.max_connections);
+        let pool = match &cfg.url {
+            Some(url) => opts.connect(url).await?,
+            // Build from parts — lets the CNPG role-Secret password be passed
+            // verbatim (no URL-encoding of special characters).
+            None => {
+                let missing = |f: &str| Error::BadRequest(format!("database.{f} required when database.url is unset"));
+                let conn = PgConnectOptions::new()
+                    .host(cfg.host.as_deref().ok_or_else(|| missing("host"))?)
+                    .port(cfg.port)
+                    .username(cfg.user.as_deref().ok_or_else(|| missing("user"))?)
+                    .password(cfg.password.as_deref().unwrap_or_default())
+                    .database(cfg.name.as_deref().ok_or_else(|| missing("name"))?)
+                    .ssl_mode(parse_sslmode(&cfg.sslmode));
+                opts.connect_with(conn).await?
+            }
+        };
         Ok(Self { pool })
     }
 
