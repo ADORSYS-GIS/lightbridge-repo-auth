@@ -82,20 +82,21 @@ Config is entirely env-driven (prefix `RA__`); see `.env.example` and `--help`.
 
 ## Claiming an org (operator)
 
-There is **no public self-serve claim** (ADR-0049): we onboard a handful of
-first-party orgs by hand. After an org admin installs the App (a Source row
-appears, `account_id` NULL → resolve denies), an operator claims it with the
-`repo-auth-ctl` CLI, which talks to the ClusterIP-only admin API:
+There is **no public self-serve claim** and **no distributed binary** (ADR-0049):
+we onboard a handful of first-party orgs by hand. When an org admin installs the
+App, a sys-admin builds `repo-auth-ctl` **from this repo** and claims the Source
+(links it to a billing account) via the ClusterIP-only admin API.
+
+➡️ **Full runbook: [`docs/sysadmin-guide.md`](docs/sysadmin-guide.md)** — setup,
+the `sources` / `claim` steps, choosing values, repo scope, troubleshooting.
 
 ```bash
-# point at the in-cluster service + load the internal token
+cargo install --path app/repo-auth-ctl        # build from source (not published)
 kubectl -n converse port-forward svc/lightbridge-repo-auth 3000:3000 &
 export RA__CTL__TOKEN=$(kubectl -n converse get secret lightbridge-repo-auth \
   -o jsonpath='{.data.internal-token}' | base64 -d)
-
-cargo run -p repo-auth-ctl -- sources           # list installs + claim status
-cargo run -p repo-auth-ctl -- claim \           # link a Source to a billing account
-  --owner-id 139577169 --account-id adorsys-gis --plan pro
+repo-auth-ctl sources
+repo-auth-ctl claim --owner-id <gh-org-id> --account-id <acct> --plan <tier>
 ```
 
 A future self-serve dashboard would call the same `/v1/admin/claim` endpoint
