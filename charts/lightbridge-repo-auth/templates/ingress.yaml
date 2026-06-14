@@ -1,0 +1,36 @@
+{{- with .Values.ingress }}
+{{- if .enabled }}
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: {{ include "lra.name" $ }}
+  labels:
+    {{- include "lra.labels" $ | nindent 4 }}
+  {{- with .annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+spec:
+  ingressClassName: {{ .className | default "traefik" }}
+  tls:
+    # TLS Secret is owned by the cert-manager Certificate in the app's deps
+    # overlay (ADR-0018) — NOT by a cert-manager annotation here. Defaults to
+    # the convention <host>-tls.
+    - hosts:
+        - {{ .host | quote }}
+      secretName: {{ .tlsSecretName | default (printf "%s-tls" .host) }}
+  rules:
+    - host: {{ .host | quote }}
+      http:
+        paths:
+          # Only the public webhook surface is exposed; /v1/resolve stays
+          # ClusterIP-only (in-cluster, X-Internal-Token).
+          - path: {{ .path | default "/github" }}
+            pathType: Prefix
+            backend:
+              service:
+                name: {{ include "lra.name" $ }}
+                port:
+                  number: {{ $.Values.service.port }}
+{{- end }}
+{{- end }}

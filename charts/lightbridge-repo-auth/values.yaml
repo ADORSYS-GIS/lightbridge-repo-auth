@@ -9,6 +9,18 @@ replicas: 2
 service:
   port: 3000
 
+# Public webhook ingress (Traefik). Only the /github surface is exposed; the
+# TLS Secret is provisioned by the app's deps overlay Certificate (ADR-0018),
+# so no cert-manager annotation lives here. Disabled by default — enable in the
+# consuming Application's valuesObject once the deps overlay + DNS exist.
+ingress:
+  enabled: false
+  className: traefik
+  host: repo-auth.ai.camer.digital
+  path: /github
+  # tlsSecretName: defaults to "<host>-tls"
+  annotations: {}
+
 # Non-secret env. Secret values come from the ExternalSecret below.
 env:
   RA__SERVER__BIND: "0.0.0.0:3000"

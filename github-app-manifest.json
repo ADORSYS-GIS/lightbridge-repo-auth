@@ -4,7 +4,7 @@
   "url": "https://vymalo.com",
   "public": true,
   "hook_attributes": {
-    "url": "https://api.vymalo.com/github/webhooks",
+    "url": "https://repo-auth.ai.camer.digital/github/webhooks",
     "active": true
   },
   "redirect_url": "https://app.vymalo.com/github/setup",
