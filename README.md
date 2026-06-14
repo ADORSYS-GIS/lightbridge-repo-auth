@@ -70,6 +70,18 @@ Config is entirely env-driven (prefix `RA__`); see `.env.example` and `--help`.
    `pem`/`webhook_secret` go to your secret manager; this service reads them via
    ESO). The `code` is single-use, ~1h TTL.
 
+## AI Governance
+
+This repo follows the [ADORSYS-GIS AI Governance](https://adorsys-gis.github.io/ai-governance/)
+doctrine: humans own intent, verification, and consequences; AI output is treated
+as untrusted until reviewed. Practically:
+
+- Open issues via the **Epic / User Story / Dev Ticket** forms and PRs via the
+  **pull request template** (`.github/`); fill the **AI Usage Declaration** and
+  **verification evidence** honestly, and include a source-of-truth link.
+- The `AI Governance` workflow (`.github/workflows/governance.yml`, pinned to the
+  `ai-governance` v1.0.0 reusable workflow) fails a PR missing those.
+
 ## Deploy
 
 The Helm chart is consumed by ai-helm (an `Application` in `charts/apps`); secrets
