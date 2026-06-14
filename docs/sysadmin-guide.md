@@ -94,6 +94,15 @@ They set that as `audience` in the `@vymalo/opencode-oauth2` plugin config, with
 - **Re-claim / change tier / fix a typo** — just run `claim` again (it
   overwrites `account_id`, and `--plan` updates the tier).
 - **Transfer to a different account** — `claim` with the new `--account-id`.
+- **Block / revoke an org that's still installed** — cut its gateway access
+  without waiting for an uninstall:
+  ```bash
+  repo-auth-ctl block   --owner-id 226188569   # resolve now denies (reason "blocked")
+  repo-auth-ctl unblock --owner-id 226188569   # restore
+  ```
+  The block is a separate flag from `status`, so it **survives reinstalls /
+  permission re-approvals** (which would otherwise reset status to active).
+  `sources` shows such a Source with `STATUS = blocked`.
 - **An org uninstalls** — the webhook flips the Source to `disabled` (and the
   reconcile sweep catches a missed one); resolve then denies. No action needed.
 

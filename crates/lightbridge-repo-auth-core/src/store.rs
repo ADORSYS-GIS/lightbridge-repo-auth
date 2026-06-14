@@ -184,6 +184,9 @@ impl Store {
         let Some(src) = self.find_by_owner(&req.repository_owner_id).await? else {
             return Ok(ResolveResponse::deny("owner_not_bound"));
         };
+        if src.blocked {
+            return Ok(ResolveResponse::deny("blocked"));
+        }
         if src.status != "active" {
             return Ok(ResolveResponse::deny("source_inactive"));
         }
@@ -234,6 +237,21 @@ impl Store {
         .bind(owner_id)
         .bind(account_id)
         .bind(billing_plan)
+        .fetch_optional(&self.pool)
+        .await?;
+        Ok(row)
+    }
+
+    /// Toggle the operator block on a Source (by owner id). Returns the updated
+    /// row, or None if no Source has that owner. Independent of webhook `status`,
+    /// so it survives reinstalls. Returns None if no Source matches.
+    pub async fn set_blocked(&self, owner_id: &str, blocked: bool) -> Result<Option<IdentitySource>> {
+        let row = sqlx::query_as::<_, IdentitySource>(
+            "update identity_source set blocked = $2, updated_at = now() \
+             where repository_owner_id = $1 returning *",
+        )
+        .bind(owner_id)
+        .bind(blocked)
         .fetch_optional(&self.pool)
         .await?;
         Ok(row)

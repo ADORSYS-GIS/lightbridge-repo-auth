@@ -14,7 +14,7 @@
 
 use anyhow::{bail, Context, Result};
 use clap::{Parser, Subcommand};
-use lightbridge_repo_auth_core::model::ClaimRequest;
+use lightbridge_repo_auth_core::model::{BlockRequest, ClaimRequest};
 use reqwest::Client;
 use serde_json::Value;
 
@@ -46,6 +46,16 @@ enum Cmd {
         /// Tier: free | pro | service | internal (omit to leave unchanged).
         #[arg(long)]
         plan: Option<String>,
+    },
+    /// Block a Source — revoke its gateway access (survives reinstalls).
+    Block {
+        #[arg(long)]
+        owner_id: String,
+    },
+    /// Unblock a Source — restore access.
+    Unblock {
+        #[arg(long)]
+        owner_id: String,
     },
 }
 
@@ -96,7 +106,32 @@ async fn main() -> Result<()> {
             println!("claimed:");
             print_sources(std::slice::from_ref(&row));
         }
+        Cmd::Block { owner_id } => set_block(&http, base, token, &owner_id, true).await?,
+        Cmd::Unblock { owner_id } => set_block(&http, base, token, &owner_id, false).await?,
     }
+    Ok(())
+}
+
+async fn set_block(http: &Client, base: &str, token: &str, owner_id: &str, blocked: bool) -> Result<()> {
+    let body = BlockRequest { owner_id: owner_id.to_string(), blocked };
+    let resp = http
+        .post(format!("{base}/v1/admin/block"))
+        .header("X-Internal-Token", token)
+        .json(&body)
+        .send()
+        .await
+        .context("request failed")?;
+    if resp.status() == reqwest::StatusCode::NOT_FOUND {
+        bail!("no Source with that owner_id (`sources` to list)");
+    }
+    let row: Value = resp
+        .error_for_status()
+        .context("server returned an error (check the token / port-forward)")?
+        .json()
+        .await
+        .context("decoding response")?;
+    println!("{}:", if blocked { "blocked" } else { "unblocked" });
+    print_sources(std::slice::from_ref(&row));
     Ok(())
 }
 
@@ -119,6 +154,12 @@ fn print_sources(rows: &[Value]) {
     );
     for r in rows {
         let account = r.get("account_id").and_then(Value::as_str).unwrap_or("<unclaimed>");
+        // A blocked Source is denied regardless of lifecycle status — surface it.
+        let status = if r.get("blocked").and_then(Value::as_bool).unwrap_or(false) {
+            "blocked".to_string()
+        } else {
+            g(r, "status")
+        };
         println!(
             "{:<30} {:<12} {:<18} {:<6} {:<18} {:<7} {:<9} {}",
             g(r, "id"),
@@ -128,7 +169,7 @@ fn print_sources(rows: &[Value]) {
             account,
             g(r, "billing_plan"),
             g(r, "repo_scope"),
-            g(r, "status"),
+            status,
         );
     }
 }

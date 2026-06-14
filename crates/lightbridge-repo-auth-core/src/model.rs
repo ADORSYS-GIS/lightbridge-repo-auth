@@ -25,6 +25,10 @@ pub struct IdentitySource {
     pub billing_plan: String,
     /// `active` | `disabled` (uninstalled) | `suspended` (GitHub-suspended)
     pub status: String,
+    /// Operator block (separate from `status`; survives reinstalls). `true` →
+    /// resolve denies regardless of status. Set via `/v1/admin/block`.
+    #[serde(default)]
+    pub blocked: bool,
     #[serde(default)]
     pub account_login: Option<String>,
     /// `Organization` | `User` (from the install webhook's `account.type`).
@@ -117,6 +121,15 @@ pub struct ClaimRequest {
     /// Tier (`free|pro|service|internal`); omitted → leave the current value.
     #[serde(default)]
     pub billing_plan: Option<String>,
+}
+
+// ─────────────────────────── /v1/admin/block ───────────────────────────
+
+/// Toggle the operator block on a Source (selected by owner id).
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
+pub struct BlockRequest {
+    pub owner_id: String,
+    pub blocked: bool,
 }
 
 // ─────────────────────────── GitHub webhooks ───────────────────────────

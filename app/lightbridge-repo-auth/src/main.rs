@@ -20,7 +20,8 @@ use lightbridge_repo_auth_core::config::{
 use lightbridge_repo_auth_core::error::{Error, Result};
 use lightbridge_repo_auth_core::github::GithubClient;
 use lightbridge_repo_auth_core::model::{
-    ClaimRequest, InstallationEvent, InstallationReposEvent, ResolveRequest, SourceStatus,
+    BlockRequest, ClaimRequest, InstallationEvent, InstallationReposEvent, ResolveRequest,
+    SourceStatus,
 };
 use lightbridge_repo_auth_core::store::Store;
 use lightbridge_repo_auth_core::webhook::verify_signature;
@@ -148,6 +149,7 @@ async fn main() -> anyhow::Result<()> {
         .route("/v1/resolve", post(resolve))
         .route("/v1/admin/sources", get(list_sources))
         .route("/v1/admin/claim", post(claim))
+        .route("/v1/admin/block", post(block))
         .route("/health", get(health))
         .route("/health/ready", get(ready))
         .route("/health/startup", get(health))
@@ -318,6 +320,22 @@ async fn claim(
         .await?
         .ok_or(Error::NotFound)?;
     tracing::info!(owner_id = %req.owner_id, account_id = %req.account_id, plan = ?req.billing_plan, "source claimed");
+    Ok(Json(json!(row)))
+}
+
+/// Toggle the operator block on a Source (revoke/restore gateway access).
+async fn block(
+    State(st): State<AppState>,
+    headers: HeaderMap,
+    Json(req): Json<BlockRequest>,
+) -> Result<Json<Value>> {
+    require_internal_token(&headers, &st)?;
+    let row = st
+        .store
+        .set_blocked(&req.owner_id, req.blocked)
+        .await?
+        .ok_or(Error::NotFound)?;
+    tracing::info!(owner_id = %req.owner_id, blocked = req.blocked, "source block toggled");
     Ok(Json(json!(row)))
 }
 
