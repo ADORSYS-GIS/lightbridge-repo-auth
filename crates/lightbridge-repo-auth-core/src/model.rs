@@ -25,8 +25,15 @@ pub struct IdentitySource {
     pub billing_plan: String,
     /// `active` | `disabled` (uninstalled) | `suspended` (GitHub-suspended)
     pub status: String,
+    /// Operator block (separate from `status`; survives reinstalls). `true` →
+    /// resolve denies regardless of status. Set via `/v1/admin/block`.
+    #[serde(default)]
+    pub blocked: bool,
     #[serde(default)]
     pub account_login: Option<String>,
+    /// `Organization` | `User` (from the install webhook's `account.type`).
+    #[serde(default)]
+    pub account_type: Option<String>,
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
 }
@@ -105,7 +112,7 @@ impl ResolveResponse {
 
 /// Link a Source to a billing account (the step a dashboard would do on the
 /// post-install redirect). Selected by `owner_id` (the binding key).
-#[derive(Debug, Clone, Deserialize, ToSchema)]
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
 pub struct ClaimRequest {
     /// GitHub numeric org/user id of the Source to claim.
     pub owner_id: String,
@@ -114,6 +121,15 @@ pub struct ClaimRequest {
     /// Tier (`free|pro|service|internal`); omitted → leave the current value.
     #[serde(default)]
     pub billing_plan: Option<String>,
+}
+
+// ─────────────────────────── /v1/admin/block ───────────────────────────
+
+/// Toggle the operator block on a Source (selected by owner id).
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
+pub struct BlockRequest {
+    pub owner_id: String,
+    pub blocked: bool,
 }
 
 // ─────────────────────────── GitHub webhooks ───────────────────────────

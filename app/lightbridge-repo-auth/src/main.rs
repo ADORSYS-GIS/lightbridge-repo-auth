@@ -20,7 +20,8 @@ use lightbridge_repo_auth_core::config::{
 use lightbridge_repo_auth_core::error::{Error, Result};
 use lightbridge_repo_auth_core::github::GithubClient;
 use lightbridge_repo_auth_core::model::{
-    ClaimRequest, InstallationEvent, InstallationReposEvent, ResolveRequest, SourceStatus,
+    BlockRequest, ClaimRequest, InstallationEvent, InstallationReposEvent, ResolveRequest,
+    SourceStatus,
 };
 use lightbridge_repo_auth_core::store::Store;
 use lightbridge_repo_auth_core::webhook::verify_signature;
@@ -148,6 +149,7 @@ async fn main() -> anyhow::Result<()> {
         .route("/v1/resolve", post(resolve))
         .route("/v1/admin/sources", get(list_sources))
         .route("/v1/admin/claim", post(claim))
+        .route("/v1/admin/block", post(block))
         .route("/health", get(health))
         .route("/health/ready", get(ready))
         .route("/health/startup", get(health))
@@ -236,6 +238,7 @@ async fn handle_installation(st: &AppState, body: &[u8]) -> Result<()> {
                     ev.installation.id,
                     &owner_id,
                     ev.installation.account.login.as_deref(),
+                    ev.installation.account.account_type.as_deref(),
                     scope,
                 )
                 .await?;
@@ -320,6 +323,22 @@ async fn claim(
     Ok(Json(json!(row)))
 }
 
+/// Toggle the operator block on a Source (revoke/restore gateway access).
+async fn block(
+    State(st): State<AppState>,
+    headers: HeaderMap,
+    Json(req): Json<BlockRequest>,
+) -> Result<Json<Value>> {
+    require_internal_token(&headers, &st)?;
+    let row = st
+        .store
+        .set_blocked(&req.owner_id, req.blocked)
+        .await?
+        .ok_or(Error::NotFound)?;
+    tracing::info!(owner_id = %req.owner_id, blocked = req.blocked, "source block toggled");
+    Ok(Json(json!(row)))
+}
+
 /// `https://api.vymalo.com/sources/src-7f3a8b` → `src-7f3a8b`.
 fn source_id_from_audience(aud: &str) -> Option<String> {
     aud.rsplit_once("/sources/")
@@ -344,13 +363,15 @@ fn spawn_reconcile(st: AppState, interval_secs: u64) {
 /// Compare our active installs against GitHub's truth and disable ghosts whose
 /// `installation.deleted` webhook we missed. Cheap insurance against webhook loss.
 async fn reconcile_once(st: &AppState) -> Result<()> {
-    let live: std::collections::HashSet<i64> = st
-        .github
-        .list_installations()
-        .await?
-        .into_iter()
-        .map(|i| i.id)
-        .collect();
+    let installs = st.github.list_installations().await?;
+    let live: std::collections::HashSet<i64> = installs.iter().map(|i| i.id).collect();
+    // Backfill the account name/type for every live install (covers rows created
+    // before account_type existed). Doesn't touch status/scope/account_id.
+    for i in &installs {
+        st.store
+            .refresh_account_info(i.id, i.account.login.as_deref(), i.account.account_type.as_deref())
+            .await?;
+    }
     let mut disabled = 0u32;
     for id in st.store.active_installation_ids().await? {
         if !live.contains(&id) {
