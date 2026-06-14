@@ -14,6 +14,10 @@ spec:
       labels:
         {{- include "lra.labels" . | nindent 8 }}
     spec:
+      {{- if .Values.imagePullSecret.enabled }}
+      imagePullSecrets:
+        - name: {{ .Values.imagePullSecret.secretName }}
+      {{- end }}
       securityContext:
         {{- toYaml .Values.podSecurityContext | nindent 8 }}
       containers:

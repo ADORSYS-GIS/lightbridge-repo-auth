@@ -4,6 +4,14 @@ image:
   tag: ""
   pullPolicy: IfNotPresent
 
+# Pull Secret for the PRIVATE ghcr package. ESO builds a dockerconfigjson from
+# the github_username / github_token props in ssegning-aws (externalSecret.remoteKey).
+imagePullSecret:
+  enabled: true
+  secretName: lightbridge-repo-auth-ghcr
+  usernameProp: github_username
+  tokenProp: github_token
+
 replicas: 2
 
 service:
