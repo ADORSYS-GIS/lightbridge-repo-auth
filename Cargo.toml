@@ -14,7 +14,7 @@ serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
 serde_yaml = "0.9"
 hex = "0.4"
-base64 = "0.22"
+base64 = "0.23"
 
 # --- crypto / jwt ---
 # ring gives us a constant-time HMAC-SHA256 for webhook verification and is
@@ -36,7 +36,7 @@ reqwest = { version = "0.13", default-features = false, features = ["json", "rus
 rustls = { version = "0.23", default-features = false, features = ["ring"] }
 
 # --- storage ---
-sqlx = { version = "0.8", features = ["runtime-tokio", "tls-rustls", "postgres", "chrono", "json", "macros", "migrate"] }
+sqlx = { version = "0.9", features = ["runtime-tokio", "tls-rustls", "postgres", "chrono", "json", "macros", "migrate"] }
 
 # --- errors / logging / config ---
 thiserror = "2"
